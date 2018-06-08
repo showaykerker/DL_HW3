@@ -26,7 +26,7 @@ data = []
 loss_hist=[]
 moving_average = 0.98
 
-test_condition = 'latent16_ce'
+test_condition = 'latent16_ll'
 name = time.strftime("%m%d-%H:%M:%S", time.localtime())
 log_dir = './logs/mod_w/' + test_condition + '_' + name + '/'
 
@@ -60,7 +60,7 @@ encoder_2_2  = tf.layers.max_pooling2d(encoder_2, pool_size=2, strides=4)
 encoder_3    = tf.layers.flatten(encoder_2_2)
 encoder_3_2  = tf.layers.dense(encoder_3, 128, activation=tf.nn.tanh, kernel_initializer=tf.glorot_normal_initializer(), bias_initializer=tf.zeros_initializer())
 encoder_3_2_2 = tf.layers.dropout(encoder_3_2, 0.8)
-encoder_3_3  = tf.layers.dense(encoder_3_2_2, 32, activation=tf.nn.sigmoid, kernel_initializer=tf.glorot_normal_initializer(), bias_initializer=tf.zeros_initializer())
+encoder_3_3  = tf.layers.dense(encoder_3_2_2, 32, activation=tf.nn.relu, kernel_initializer=tf.glorot_normal_initializer(), bias_initializer=tf.zeros_initializer())
 
 z_mean = tf.layers.dense(encoder_3_3, latent_size, kernel_initializer=tf.glorot_normal_initializer(), bias_initializer=tf.zeros_initializer())
 z_std  = tf.layers.dense(encoder_3_3, latent_size, kernel_initializer=tf.glorot_normal_initializer(), bias_initializer=tf.zeros_initializer())
@@ -85,9 +85,9 @@ decoder_out = tf.layers.dense(decoder_1_0, 6912, activation=tf.nn.sigmoid, kerne
 
 decoder_reshape = tf.reshape(decoder_out, shape=[-1, 48, 48, 3])
 
-tf.summary.histogram('latent z_mean', z_mean)
-tf.summary.histogram('latent z_std', z_std)
-tf.summary.histogram('latent z', z)
+tf.summary.histogram('latent/z_mean', z_mean)
+tf.summary.histogram('latent/z_std', z_std)
+tf.summary.histogram('latent/z', z)
 tf.summary.image('reconstruction', decoder_reshape)
 
 #decoder_3   = tf.reshape(decoder_3_2, shape=[-1, ])
@@ -151,7 +151,7 @@ def Test(sess, n_show=8):
 
 	
 	for i, p in enumerate(pics):
-		pics[i] = p*255
+		pics[i] = p * 255
 		if i < 3 : cv2.imshow('%d'%i, pics[i])
 	pics = np.array(pics, dtype=np.uint8)
 	#print(inp)
@@ -172,14 +172,19 @@ def Forward(sess,x):
 def VAE_loss(x_reconstructed, x_true):
 	#encode_decode_loss = x_true * tf.log(1e-10+x_reconstructed) + (1 - x_true) * tf.log(1e-10 + 1 - x_reconstructed)
 	#encode_decode_loss = -tf.reduce_sum(encode_decode_loss, 1)
-	encode_decode_loss = tf.losses.mean_squared_error(x_true, x_reconstructed)
+	encode_decode_loss = tf.reduce_sum(tf.losses.log_loss(x_true, x_reconstructed))
 
 	kl_div_loss = 1 + z_std - tf.square(z_mean) - tf.exp(z_std)
 	kl_div_loss = -0.5 * tf.reduce_sum(kl_div_loss, 1)
 
-	loss = tf.reduce_mean(encode_decode_loss + kl_div_loss)
+	w_rec = 1
+	w_kl = 1
 
-	tf.summary.scalar('loss', loss)
+	loss = tf.reduce_sum(encode_decode_loss*w_rec + kl_div_loss*w_kl)
+
+	tf.summary.scalar('loss/reconstruction_loss', tf.reduce_mean(encode_decode_loss)*w_rec)
+	tf.summary.scalar('loss/kl_loss', kl_div_loss*w_kl)
+	tf.summary.scalar('loss/total_loss', loss)
 
 	return loss
 
