@@ -24,7 +24,7 @@ data = []
 
 loss_hist=[]
 moving_average = 0.98
-
+log_dir = './logs/'
 
 
 n_step = 600000
@@ -78,7 +78,13 @@ decoder_1   = tf.layers.conv2d_transpose(decoder_1_2, filters=3, kernel_size=3, 
 decoder_1_0 = tf.layers.flatten(decoder_1)
 decoder_out = tf.layers.dense(decoder_1_0, 6912, activation=tf.nn.sigmoid, kernel_initializer=tf.zeros_initializer(), bias_initializer=tf.glorot_normal_initializer())
 
+
 decoder_reshape = tf.reshape(decoder_out, shape=[-1, 48, 48, 3])
+
+tf.summary.histogram('latent z_mean', z_mean)
+tf.summary.histogram('latent z_std', z_std)
+tf.summary.histogram('latent z', z)
+tf.summary.image('reconstruction', decoder_reshape)
 
 #decoder_3   = tf.reshape(decoder_3_2, shape=[-1, ])
 '''
@@ -161,7 +167,11 @@ def VAE_loss(x_reconstructed, x_true):
 	kl_div_loss = 1 + z_std - tf.square(z_mean) - tf.exp(z_std)
 	kl_div_loss = -0.5 * tf.reduce_sum(kl_div_loss, 1)
 
-	return tf.reduce_mean(encode_decode_loss + kl_div_loss)
+	loss = tf.reduce_mean(encode_decode_loss + kl_div_loss)
+
+	tf.summary.scalar('loss', loss)
+
+	return loss
 
 
 loss_op = VAE_loss(decoder_out, input_holder)
@@ -173,10 +183,15 @@ train_op = optimizer.minimize(loss_op)
 
 init = tf.global_variables_initializer()
 
-
 plt.ion()
 
+
+
 with tf.Session(config=config) as sess:
+	# TensorBoard https://blog.csdn.net/sinat_33761963/article/details/62433234
+	merged = tf.summary.merge_all()
+	writer = tf.summary.FileWriter(log_dir, sess.graph)
+
 	sess.run(init)
 
 	for i in range(1, n_step+1):
@@ -188,33 +203,32 @@ with tf.Session(config=config) as sess:
 
 		feed_dict = {input_holder: train_data}
 		_, l = sess.run([train_op, loss_op], feed_dict=feed_dict)
-		
+		tf.summary.scalar('loss', l)
+
 		#loss_hist.append(l)
 		if len(loss_hist) == 0: loss_hist.append(l)
 		else: loss_hist.append(loss_hist[-1]*moving_average + l*(1-moving_average))
 
+
 		if i % 200 == 0 or i == 1:
 			print('Step %i, Loss: %f' %(i, l))
+			summary = sess.run(merged, feed_dict=feed_dict)
+			writer.add_summary(summary, i)
 
-			'''
-			#if l is np.nan:
-			gen_pic = Forward(sess, train_data[0])
 
-			print(type(gen_pic))
-			print(gen_pic[0,...].shape)
-			cv2.imshow('%d'%i, gen_pic[0,...])
-			cv2.waitKey(1)
+
+			
+			#plt.plot(loss_hist, 'g')
 		
-			'''
-			plt.plot(loss_hist, 'g')
-		
-			plt.pause(0.0001)
+			#plt.pause(0.0001)
 			#Test(sess)
 			#plt.show()
 
 		if i % 1000 == 0:
-			Test(sess)
+			#Test(sess)
+			pass
 
+	writer.close()
 		
 
 
