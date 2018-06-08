@@ -9,6 +9,7 @@ from sklearn.model_selection import train_test_split
 import scipy
 import pickle
 
+import time
 
 config = tf.ConfigProto()
 config.gpu_options.per_process_gpu_memory_fraction = 0.84
@@ -24,11 +25,14 @@ data = []
 
 loss_hist=[]
 moving_average = 0.98
-log_dir = './logs/'
+
+test_condition = 'latent16_ce'
+name = time.strftime("%m%d-%H:%M:%S", time.localtime())
+log_dir = './logs/mod_w/' + test_condition + '_' + name + '/'
 
 
 n_step = 600000
-batch_size = 8
+batch_size = 4
 
 
 with open('../faces.pkl', 'rb') as f:
@@ -37,7 +41,7 @@ with open('../faces.pkl', 'rb') as f:
 
 
 data = np.array(data, dtype=np.float32)
-print(data[0])
+#print(data[0])
 
 train_x, test_x = train_test_split(data, test_size=0.2) 
 
@@ -130,26 +134,32 @@ def plot_images(images_input, n_show=5):
 		ax.imshow(images_[i].reshape(img_size, img_size, 3))
 		ax.set_xticks([]); ax.set_yticks([]);
 
+	plt.pause(0.001)
 	
-	plt.show()
 
 
 def Test(sess, n_show=8):
-	inp=np.random.normal(4, 3, (64, latent_size))
+	'''
+	for i in range(0, 10):
+		print(Forward(sess, data[i]))
+	'''
+	inp = np.random.normal(0, 1, (64, latent_size))
+	z_inp = np.random.rand()/8 + np.exp(np.random.rand()/16)*inp
+	#z_inp = np.random.rand()/8 + np.random.rand()/8*inp
 
+	pics = sess.run(decoder_reshape, feed_dict={z:z_inp})
 
-
-	pics = sess.run(decoder_reshape, feed_dict={z:inp})
-
+	
 	for i, p in enumerate(pics):
 		pics[i] = p*255
-		#cv2.imshow('%d'%i, p)
+		if i < 3 : cv2.imshow('%d'%i, pics[i])
 	pics = np.array(pics, dtype=np.uint8)
 	#print(inp)
 	#print(pics[0], pics.shape)
-	#cv2.waitKey(0)
+	cv2.waitKey(1)
 	#cv2.destroyAllWindows()
-	plot_images(pics, n_show=n_show)
+	#@plot_images(pics, n_show=n_show)
+	
 	
 
 def Forward(sess,x):
@@ -198,7 +208,8 @@ with tf.Session(config=config) as sess:
 		idx = np.arange(0, len(data))
 		num = np.random.shuffle(idx)
 		idx = idx[:batch_size]
-		train_data = np.array([data[i].flatten() for i in idx])
+		#print(idx)
+		train_data = np.array([data[j].flatten() for j in idx])
 
 
 		feed_dict = {input_holder: train_data}
@@ -209,11 +220,15 @@ with tf.Session(config=config) as sess:
 		if len(loss_hist) == 0: loss_hist.append(l)
 		else: loss_hist.append(loss_hist[-1]*moving_average + l*(1-moving_average))
 
+		if i % 10 == 0:
+			summary = sess.run(merged, feed_dict=feed_dict)
+			writer.add_summary(summary, i)
 
 		if i % 200 == 0 or i == 1:
 			print('Step %i, Loss: %f' %(i, l))
-			summary = sess.run(merged, feed_dict=feed_dict)
-			writer.add_summary(summary, i)
+		
+		if i % 50 == 0 : Test(sess)
+			
 
 
 
@@ -224,9 +239,9 @@ with tf.Session(config=config) as sess:
 			#Test(sess)
 			#plt.show()
 
-		if i % 1000 == 0:
-			#Test(sess)
-			pass
+		
+			
+			
 
 	writer.close()
 		
