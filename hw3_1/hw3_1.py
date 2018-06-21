@@ -14,7 +14,7 @@ tf.reset_default_graph()
 config = tf.ConfigProto()
 config.gpu_options.per_process_gpu_memory_fraction = 0.84
 
-test_condition = '0.8x_latent_loss_latent12'
+test_condition = 'latent'+str(n_latent)
 name = time.strftime("%m%d-%H:%M:%S", time.localtime())
 log_dir = './logs/' + test_condition + '_' + name + '/'
 
@@ -40,7 +40,7 @@ dec_flatten = tf.reshape(output, [-1, 32*32*3])
 ys_flatten = tf.reshape(ys, [-1, 32*32*3])
 
 recons_loss = tf.reduce_sum(tf.squared_difference(dec_flatten, ys_flatten), 1)
-latent_loss = - 0.5 * tf.reduce_sum(1 + 2 * var - tf.square(mean) - tf.exp(2.0 * var + 1e-10), 1) * 0.8
+latent_loss = - 0.5 * tf.reduce_sum(1 + 2 * var - tf.square(mean) - tf.exp(2.0 * var + 1e-10), 1) 
 loss = tf.reduce_mean(recons_loss + latent_loss)
 optimizer = tf.train.AdamOptimizer(LR).minimize(loss)
 
@@ -99,13 +99,16 @@ if __name__ == '__main__':
 						cv2.imwrite(path+str(co)+'.png', img)
 						co +=1 
 
+					path = log_dir+'gen/Concat/'
+					if not os.path.exists(path): os.makedirs(path)
+
 					length = int(n_gen**0.5)
 					big_pic = None
 					for x_axis in range(length):
 						row = np.concatenate(image[x_axis*length:x_axis*length+length-1], axis=0)
 						if big_pic is None: big_pic = row.copy()
 						else: big_pic = np.concatenate([big_pic, row], axis=1)
-					cv2.imwrite(path+'Concat.png', big_pic)
+					cv2.imwrite(path+'Concat_%d.png' % i, big_pic)
 
 
 		except :
@@ -125,6 +128,8 @@ if __name__ == '__main__':
 			cv2.imwrite(path+str(co)+'.png', img)
 			co +=1 
 
+		path = log_dir+'gen/Concat/'
+		if not os.path.exists(path): os.makedirs(path)
 		length = int(n_gen**0.5)
 		big_pic = None
 		for x_axis in range(length):
@@ -153,6 +158,8 @@ if __name__ == '__main__':
 		train_data = np.multiply(train_data, 255)
 
 	
+		path = log_dir+'gen/'
+		if not os.path.exists(path): os.makedirs(path)	
 		big_pic = None
 		for x_axis in range(length):
 			row = np.concatenate(train_data[x_axis*length:x_axis*length+length-1], axis=0)

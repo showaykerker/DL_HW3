@@ -10,7 +10,7 @@ CONV = {
 	'd_conv_t_2': { 'filters': 64, 'ksize':4, 'strides': 2, 'activation':tf.nn.relu },
 }
 
-n_latent = 12
+n_latent = 8
 
 FC = {
 	'mean': { 'n_outputs': n_latent, 'activation':None },
