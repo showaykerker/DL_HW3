@@ -85,11 +85,10 @@ if __name__ == '__main__':
 				if i % 100 == 0 or i == 1:
 					print('Step %i, Loss: %f' % (i, l))
 
-				if i % 100 == 0 or i == 1:
+				if i % 500 == 0 or i == 1:
 					n_gen = 16
 					r = [np.random.normal(0, 1, n_latent) for i in range(n_gen)]
 					image = sess.run([output], feed_dict={sample: r})
-					#writer_gen.add_summary(image, i)
 					image = np.reshape(image, [-1, 32, 32, 3])
 					image = np.multiply(image, 255)
 					co = 0
@@ -142,15 +141,28 @@ if __name__ == '__main__':
 		length = int(show**0.5)
 		idx = np.arange(0, len(data))
 		num = np.random.shuffle(idx)
-		idx = idx[:length]
+		idx = idx[:show]
 
 		train_data = np.array([data[j] for j in idx])
 		dict_ = {xs: train_data, ys: train_data}
 		image, _, l = sess.run([output, optimizer, loss], feed_dict=dict_)
+		image = np.reshape(image, [-1, 32, 32, 3])
+		image = np.multiply(image, 255)
+
+		train_data = np.reshape(train_data, [-1, 32, 32, 3])
+		train_data = np.multiply(train_data, 255)
+
+	
+		big_pic = None
+		for x_axis in range(length):
+			row = np.concatenate(train_data[x_axis*length:x_axis*length+length-1], axis=0)
+			if big_pic is None: big_pic = row.copy()
+			else: big_pic = np.concatenate([big_pic, row], axis=1)		
+		cv2.imwrite(path+'Input.png', big_pic)
 
 		big_pic = None
 		for x_axis in range(length):
 			row = np.concatenate(image[x_axis*length:x_axis*length+length-1], axis=0)
 			if big_pic is None: big_pic = row.copy()
 			else: big_pic = np.concatenate([big_pic, row], axis=1)
-		cv2.imwrite(path+'QQ.png', big_pic)
+		cv2.imwrite(path+'recons.png', big_pic)
